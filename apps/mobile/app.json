@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "NoteGenius AI",
+    "slug": "notegenius-ai",
+    "version": "1.0.0",
+    "scheme": "notegenius",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3B82F6"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.notegenius.ai",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "NoteGenius AI needs access to your microphone to record audio notes."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#3B82F6"
+      },
+      "package": "com.notegenius.ai",
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "NoteGenius AI needs access to your microphone to record audio notes."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

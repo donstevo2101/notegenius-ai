@@ -1,0 +1,13 @@
+{
+  "name": "notegenius-ai",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.6"
+  }
+}
