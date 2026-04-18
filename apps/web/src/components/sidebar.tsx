@@ -16,6 +16,10 @@ import {
   Settings,
   Wallet,
   Plus,
+  Video,
+  FileAudio,
+  Languages,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,16 +42,38 @@ const navItems = [
     href: "/dashboard?filter=favorites",
     filter: "favorites",
   },
-  { label: "Folders", icon: Folder, href: "/dashboard/folders" },
+  {
+    label: "Folders",
+    icon: Folder,
+    href: "/dashboard?filter=folders",
+    filter: "folders",
+  },
   {
     label: "Imported",
     icon: Upload,
     href: "/dashboard?filter=imported",
     filter: "imported",
   },
-  { label: "PDF", icon: FileText, href: "/dashboard/pdf" },
-  { label: "My Notes", icon: StickyNote, href: "/dashboard/notes" },
+  {
+    label: "PDF",
+    icon: FileText,
+    href: "/dashboard?filter=pdf",
+    filter: "pdf",
+  },
+  {
+    label: "My Notes",
+    icon: StickyNote,
+    href: "/dashboard?filter=notes",
+    filter: "notes",
+  },
   { label: "Phone", icon: Phone, href: "/dashboard/phone" },
+];
+
+const toolItems = [
+  { label: "Video to Text", icon: Video, href: "/tools/video-to-text" },
+  { label: "Audio to Text", icon: FileAudio, href: "/tools/audio-to-text" },
+  { label: "Translate", icon: Languages, href: "/tools/translate-audio" },
+  { label: "All Tools", icon: Wrench, href: "/tools" },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
@@ -126,6 +152,23 @@ export function Sidebar({ className }: { className?: string }) {
               </Link>
             );
           })}
+        </nav>
+
+        <Separator className="my-2" />
+
+        {/* Tools quick links */}
+        <p className="px-3 pt-1 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tools</p>
+        <nav className="flex flex-col gap-0.5 pb-2">
+          {toolItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            >
+              <item.icon className="size-4" />
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         <Separator className="my-2" />

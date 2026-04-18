@@ -1,42 +1,54 @@
 {
   "expo": {
-    "name": "NoteGenius AI",
-    "slug": "notegenius-ai",
+    "name": "NoteGenius",
+    "slug": "notegenius",
     "version": "1.0.0",
-    "scheme": "notegenius",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#3B82F6"
+      "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.notegenius.ai",
+      "bundleIdentifier": "ai.notegenius.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "NoteGenius AI needs access to your microphone to record audio notes."
+        "NSMicrophoneUsageDescription": "NoteGenius records voice memos and meeting audio that you choose to capture.",
+        "NSUserNotificationsUsageDescription": "NoteGenius sends you a prompt after each phone call to dictate notes.",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
+      "package": "ai.notegenius.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#3B82F6"
+        "backgroundColor": "#ffffff"
       },
-      "package": "com.notegenius.ai",
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "READ_PHONE_STATE",
+        "READ_CALL_LOG",
+        "MODIFY_AUDIO_SETTINGS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_PHONE_CALL",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "plugins": [
       "expo-router",
       [
-        "expo-av",
-        {
-          "microphonePermission": "NoteGenius AI needs access to your microphone to record audio notes."
-        }
+        "./modules/call-detector/app.plugin.js"
       ],
-      "expo-secure-store"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#3B82F6"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

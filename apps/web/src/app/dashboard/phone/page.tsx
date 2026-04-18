@@ -62,8 +62,13 @@ export default function PhonePage() {
   const [provisioning, setProvisioning] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [countryCode, setCountryCode] = useState("US");
+  const [countryCode, setCountryCode] = useState("GB");
   const [areaCode, setAreaCode] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [postalCode, setPostalCode] = useState("");
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
 
   const supabase = createClient();
@@ -126,6 +131,13 @@ export default function PhonePage() {
         body: JSON.stringify({
           countryCode: countryCode.trim().toUpperCase(),
           areaCode: areaCode.trim() || undefined,
+          address: {
+            customerName: customerName.trim(),
+            street: street.trim(),
+            city: city.trim(),
+            region: region.trim(),
+            postalCode: postalCode.trim(),
+          },
         }),
       });
 
@@ -265,34 +277,85 @@ export default function PhonePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Country Code
-                </label>
-                <Input
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  placeholder="US"
-                  className="uppercase"
-                  maxLength={2}
-                />
+            <div className="space-y-4">
+              {/* Number selection */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Country</label>
+                  <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                    <option value="GB">🇬🇧 United Kingdom (+44)</option>
+                    <option value="US">🇺🇸 United States (+1)</option>
+                    <option value="CA">🇨🇦 Canada (+1)</option>
+                    <option value="AU">🇦🇺 Australia (+61)</option>
+                    <option value="DE">🇩🇪 Germany (+49)</option>
+                    <option value="FR">🇫🇷 France (+33)</option>
+                    <option value="ES">🇪🇸 Spain (+34)</option>
+                    <option value="IT">🇮🇹 Italy (+39)</option>
+                    <option value="NL">🇳🇱 Netherlands (+31)</option>
+                    <option value="IE">🇮🇪 Ireland (+353)</option>
+                    <option value="SE">🇸🇪 Sweden (+46)</option>
+                    <option value="NO">🇳🇴 Norway (+47)</option>
+                    <option value="DK">🇩🇰 Denmark (+45)</option>
+                    <option value="FI">🇫🇮 Finland (+358)</option>
+                    <option value="PT">🇵🇹 Portugal (+351)</option>
+                    <option value="BE">🇧🇪 Belgium (+32)</option>
+                    <option value="AT">🇦🇹 Austria (+43)</option>
+                    <option value="CH">🇨🇭 Switzerland (+41)</option>
+                    <option value="PL">🇵🇱 Poland (+48)</option>
+                    <option value="JP">🇯🇵 Japan (+81)</option>
+                    <option value="KR">🇰🇷 South Korea (+82)</option>
+                    <option value="IN">🇮🇳 India (+91)</option>
+                    <option value="BR">🇧🇷 Brazil (+55)</option>
+                    <option value="MX">🇲🇽 Mexico (+52)</option>
+                    <option value="ZA">🇿🇦 South Africa (+27)</option>
+                    <option value="NG">🇳🇬 Nigeria (+234)</option>
+                    <option value="GH">🇬🇭 Ghana (+233)</option>
+                    <option value="KE">🇰🇪 Kenya (+254)</option>
+                    <option value="SG">🇸🇬 Singapore (+65)</option>
+                    <option value="HK">🇭🇰 Hong Kong (+852)</option>
+                    <option value="NZ">🇳🇿 New Zealand (+64)</option>
+                    <option value="AE">🇦🇪 UAE (+971)</option>
+                    <option value="SA">🇸🇦 Saudi Arabia (+966)</option>
+                    <option value="IL">🇮🇱 Israel (+972)</option>
+                    <option value="PH">🇵🇭 Philippines (+63)</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Area Code (optional)</label>
+                  <Input value={areaCode} onChange={(e) => setAreaCode(e.target.value)} placeholder="20" maxLength={5} />
+                </div>
               </div>
-              <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Area Code (optional)
-                </label>
-                <Input
-                  value={areaCode}
-                  onChange={(e) => setAreaCode(e.target.value)}
-                  placeholder="415"
-                  maxLength={5}
-                />
+
+              {/* Address (required for regulatory compliance) */}
+              <Separator />
+              <p className="text-xs text-gray-500">Address required for phone number regulatory compliance</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Full Name</label>
+                  <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Stephen Osinowo" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Street Address</label>
+                  <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Flat A, 345 Brixton Road" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">City</label>
+                  <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="London" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Region / County</label>
+                  <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="London" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Postcode</label>
+                  <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="SW9 7DA" />
+                </div>
               </div>
+
               <Button
-                className="gap-2 bg-blue-500 text-white hover:bg-blue-600"
+                className="gap-2 bg-blue-500 text-white hover:bg-blue-600 w-full sm:w-auto"
                 onClick={handleProvision}
-                disabled={provisioning || !countryCode.trim()}
+                disabled={provisioning || !countryCode.trim() || !customerName.trim() || !street.trim() || !city.trim() || !postalCode.trim()}
               >
                 {provisioning ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -447,7 +510,7 @@ export default function PhonePage() {
             {calls.map((call) => (
               <Link
                 key={call.id}
-                href={`/recordings/${call.id}`}
+                href={`/dashboard/recordings/${call.id}`}
                 className="block rounded-lg border bg-white p-3 transition-shadow hover:shadow-sm"
               >
                 <div className="flex items-center justify-between">

@@ -30,7 +30,7 @@ export async function sendSummaryEmail(
 ): Promise<void> {
   if (to.length === 0) return;
 
-  const viewUrl = `${appUrl}/recordings/${recordingId}`;
+  const viewUrl = `${appUrl}/dashboard/recordings/${recordingId}`;
 
   const actionItemsHtml =
     summary.action_items.length > 0

@@ -19,24 +19,26 @@ import { cn } from "@/lib/utils";
 import { seekAudio } from "./audio-player";
 
 export interface ActionItem {
-  id: string;
+  id?: string;
   text: string;
-  completed: boolean;
+  completed?: boolean;
+  done?: boolean;
   assignee?: string;
 }
 
 export interface KeyDecision {
-  id: string;
+  id?: string;
   text: string;
-  context: string;
+  context?: string;
   timestamp_ms?: number;
 }
 
 export interface Topic {
-  id: string;
+  id?: string;
   name: string;
-  start_ms: number;
-  end_ms: number;
+  start_ms?: number;
+  end_ms?: number;
+  summary?: string;
 }
 
 export interface Summary {
@@ -89,13 +91,17 @@ function formatTimestamp(ms: number): string {
 
 export function SummaryPanel({ summary, isLoading, recordingId }: SummaryPanelProps) {
   const [actionItems, setActionItems] = useState<ActionItem[]>(
-    summary?.action_items ?? []
+    (summary?.action_items ?? []).map((item, idx) => ({
+      ...item,
+      id: item.id ?? `action-${idx}`,
+      completed: item.completed ?? item.done ?? false,
+    }))
   );
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  const toggleActionItem = async (itemId: string) => {
-    const updated = actionItems.map((item) =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item
+  const toggleActionItem = async (itemId: string | undefined, index: number) => {
+    const updated = actionItems.map((item, idx) =>
+      (itemId ? item.id === itemId : idx === index) ? { ...item, completed: !item.completed } : item
     );
     setActionItems(updated);
 
@@ -194,7 +200,7 @@ export function SummaryPanel({ summary, isLoading, recordingId }: SummaryPanelPr
             <h3 className="text-sm font-semibold text-gray-900">Overview</h3>
           </div>
           <div className="space-y-2">
-            {summary.overview.split("\n\n").map((paragraph, i) => (
+            {(summary.overview || "").split("\n\n").map((paragraph, i) => (
               <p key={i} className="text-sm leading-relaxed text-gray-600">
                 {paragraph}
               </p>
@@ -218,10 +224,10 @@ export function SummaryPanel({ summary, isLoading, recordingId }: SummaryPanelPr
                 </span>
               </div>
               <ul className="space-y-2">
-                {actionItems.map((item) => (
-                  <li key={item.id} className="flex items-start gap-2">
+                {actionItems.map((item, idx) => (
+                  <li key={item.id ?? `action-${idx}`} className="flex items-start gap-2">
                     <button
-                      onClick={() => toggleActionItem(item.id)}
+                      onClick={() => toggleActionItem(item.id, idx)}
                       className="mt-0.5 shrink-0 text-gray-400 hover:text-blue-500 transition-colors"
                     >
                       {item.completed ? (
@@ -264,14 +270,16 @@ export function SummaryPanel({ summary, isLoading, recordingId }: SummaryPanelPr
                 </h3>
               </div>
               <ul className="space-y-3">
-                {summary.key_decisions.map((decision) => (
-                  <li key={decision.id} className="rounded-lg bg-gray-50 p-3">
+                {summary.key_decisions.map((decision, idx) => (
+                  <li key={decision.id ?? `decision-${idx}`} className="rounded-lg bg-gray-50 p-3">
                     <p className="text-sm font-medium text-gray-800">
                       {decision.text}
                     </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {decision.context}
-                    </p>
+                    {decision.context && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {decision.context}
+                      </p>
+                    )}
                     {decision.timestamp_ms != null && (
                       <button
                         onClick={() => seekAudio(decision.timestamp_ms! / 1000)}
@@ -297,18 +305,20 @@ export function SummaryPanel({ summary, isLoading, recordingId }: SummaryPanelPr
                 <h3 className="text-sm font-semibold text-gray-900">Topics</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {summary.topics.map((topic) => (
+                {summary.topics.map((topic, idx) => (
                   <button
-                    key={topic.id}
-                    onClick={() => seekAudio(topic.start_ms / 1000)}
+                    key={topic.id ?? `topic-${idx}`}
+                    onClick={() => topic.start_ms != null ? seekAudio(topic.start_ms / 1000) : undefined}
                     className="group flex items-center gap-1.5 rounded-full border bg-white px-3 py-1 text-xs transition-colors hover:border-blue-200 hover:bg-blue-50"
                   >
                     <span className="font-medium text-gray-700 group-hover:text-blue-600">
                       {topic.name}
                     </span>
-                    <span className="font-mono text-[10px] text-gray-400 group-hover:text-blue-500">
-                      {formatTimestamp(topic.start_ms)} - {formatTimestamp(topic.end_ms)}
-                    </span>
+                    {topic.start_ms != null && topic.end_ms != null && (
+                      <span className="font-mono text-[10px] text-gray-400 group-hover:text-blue-500">
+                        {formatTimestamp(topic.start_ms)} - {formatTimestamp(topic.end_ms)}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

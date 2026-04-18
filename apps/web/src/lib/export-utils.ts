@@ -24,7 +24,7 @@ export interface ExportRecording {
   id: string;
   title: string;
   created_at: string;
-  duration_ms: number;
+  duration_seconds: number;
   status: string;
   source: string;
 }
@@ -93,7 +93,7 @@ export function formatFullExport(
         id: recording.id,
         title: recording.title,
         created_at: recording.created_at,
-        duration_ms: recording.duration_ms,
+        duration_seconds: recording.duration_seconds,
         status: recording.status,
         source: recording.source,
       },

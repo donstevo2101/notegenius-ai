@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -29,17 +29,18 @@ import {
 } from "./components/speaker-labels";
 import { ExportMenu } from "./components/export-menu";
 
-type RecordingStatus = "recording" | "processing" | "ready" | "error";
+type RecordingStatus = "recording" | "uploading" | "processing" | "transcribing" | "summarizing" | "ready" | "error";
 type RecordingSource = "web" | "mobile" | "twilio";
 
 interface Recording {
   id: string;
   title: string;
   created_at: string;
-  duration_ms: number;
+  duration_seconds: number;
   status: RecordingStatus;
   source: RecordingSource;
   audio_url: string | null;
+  chunk_urls: string[];
 }
 
 interface RecordingDetailClientProps {
@@ -58,8 +59,20 @@ const statusConfig: Record<
     label: "Recording",
     className: "bg-red-100 text-red-700 border-red-200",
   },
+  uploading: {
+    label: "Uploading",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
+  },
   processing: {
     label: "Processing",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  },
+  transcribing: {
+    label: "Transcribing",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  },
+  summarizing: {
+    label: "Summarizing",
     className: "bg-yellow-100 text-yellow-700 border-yellow-200",
   },
   ready: {
@@ -86,8 +99,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
+function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds) return "0m 0s";
+  const totalSeconds = Math.floor(seconds);
   const hrs = Math.floor(totalSeconds / 3600);
   const mins = Math.floor((totalSeconds % 3600) / 60);
   const secs = totalSeconds % 60;
@@ -109,9 +123,52 @@ export function RecordingDetailClient({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState(recording.title);
 
-  const statusInfo = statusConfig[recording.status];
-  const SourceIcon = sourceIcons[recording.source];
-  const durationSeconds = recording.duration_ms / 1000;
+  const [processingMessage, setProcessingMessage] = useState("");
+  const isProcessing = ["uploading", "processing", "transcribing", "summarizing"].includes(recording.status);
+
+  // Call /process endpoint repeatedly while processing — drives the state machine
+  useEffect(() => {
+    if (!isProcessing) return;
+
+    let cancelled = false;
+
+    async function pollProcess() {
+      try {
+        const res = await fetch(`/api/recordings/${recording.id}/process`, { method: "POST" });
+        const data = res.ok ? await res.json() : { status: "retrying", done: false, message: "Retrying..." };
+        setProcessingMessage(data.message || "Processing...");
+
+        if (data.done || data.status === "ready") {
+          window.location.reload();
+          return;
+        }
+        if (data.status === "error" && data.done) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        setProcessingMessage("Connection issue, retrying...");
+      }
+
+      if (!cancelled) {
+        // Poll every 5 seconds to keep chunks moving
+        setTimeout(() => {
+          if (!cancelled) pollProcess();
+        }, 5000);
+      }
+    }
+
+    // Start after 2 second delay to let the page render
+    const initialTimeout = setTimeout(pollProcess, 2000);
+    return () => {
+      cancelled = true;
+      clearTimeout(initialTimeout);
+    };
+  }, [isProcessing, recording.id]);
+
+  const statusInfo = statusConfig[recording.status] ?? statusConfig.processing;
+  const SourceIcon = sourceIcons[recording.source] ?? Globe;
+  const durationSeconds = recording.duration_seconds;
 
   const saveTitle = async () => {
     const trimmed = editTitleValue.trim();
@@ -224,12 +281,15 @@ export function RecordingDetailClient({
                   <ExportMenu recordingId={recording.id} />
                 )}
               </div>
+              {isProcessing && processingMessage && (
+                <p className="text-xs text-yellow-600 mt-1 animate-pulse">{processingMessage}</p>
+              )}
 
               {/* Meta row */}
               <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
                 <SourceIcon className="h-3.5 w-3.5" />
                 <span>{formatDate(recording.created_at)}</span>
-                <span>{formatDuration(recording.duration_ms)}</span>
+                <span>{formatDuration(recording.duration_seconds)}</span>
               </div>
             </div>
           </div>
@@ -246,10 +306,11 @@ export function RecordingDetailClient({
         </div>
 
         {/* Audio player */}
-        {recording.audio_url && (
+        {(recording.audio_url || recording.chunk_urls.length > 0) && (
           <div className="px-4 pb-3 sm:px-6">
             <AudioPlayer
-              audioUrl={recording.audio_url}
+              audioUrl={recording.audio_url || recording.chunk_urls[0]}
+              chunkUrls={recording.chunk_urls}
               duration={durationSeconds}
               onTimeUpdate={setCurrentTimeMs}
             />
@@ -281,7 +342,7 @@ export function RecordingDetailClient({
           <TabsContent value="summary" className="flex-1 overflow-hidden p-4">
             <SummaryPanel
               summary={summary}
-              isLoading={recording.status === "processing"}
+              isLoading={isProcessing}
               recordingId={recording.id}
             />
           </TabsContent>
@@ -327,7 +388,7 @@ export function RecordingDetailClient({
             >
               <SummaryPanel
                 summary={summary}
-                isLoading={recording.status === "processing"}
+                isLoading={isProcessing}
                 recordingId={recording.id}
               />
             </TabsContent>

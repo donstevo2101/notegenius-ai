@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         title: title || "Untitled Recording",
-        source: source || "microphone",
+        source: source || "web",
         language: language || "en",
         status: "recording",
         total_chunks: 0,

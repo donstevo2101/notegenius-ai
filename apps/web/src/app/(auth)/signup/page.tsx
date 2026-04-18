@@ -39,23 +39,9 @@ export default function SignupPage() {
       return;
     }
 
-    setSuccess(true);
-    setLoading(false);
-  }
-
-  if (success) {
-    return (
-      <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
-        <p className="text-sm text-muted-foreground">
-          We&apos;ve sent a confirmation link to <strong>{email}</strong>.
-          Click the link to activate your account.
-        </p>
-        <Button variant="outline" onClick={() => router.push("/login")}>
-          Back to login
-        </Button>
-      </div>
-    );
+    // Auto-confirm is enabled — go straight to dashboard
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (

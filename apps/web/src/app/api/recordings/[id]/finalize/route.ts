@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// POST /api/recordings/[id]/finalize — finalize a recording and trigger transcription
+// POST /api/recordings/[id]/finalize — mark recording as processing (fast, no heavy work)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,7 +18,6 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify ownership
     const { data: recording, error: findError } = await supabase
       .from("recordings")
       .select("id, user_id, total_chunks")
@@ -30,40 +29,25 @@ export async function POST(
       return NextResponse.json({ error: "Recording not found" }, { status: 404 });
     }
 
-    // Calculate total duration from chunks
+    // Calculate duration from chunks
     const { data: chunks } = await supabase
       .from("recording_chunks")
-      .select("duration_ms")
+      .select("duration_seconds")
       .eq("recording_id", id);
 
-    const totalDurationMs = chunks
-      ? chunks.reduce((sum, c) => sum + (c.duration_ms || 30000), 0)
+    const totalDurationSeconds = chunks
+      ? chunks.reduce((sum, c) => sum + (c.duration_seconds || 30), 0)
       : 0;
 
-    // Update recording status
-    const { error: updateError } = await supabase
+    // Just update status — transcription will be triggered by the client
+    await supabase
       .from("recordings")
       .update({
         status: "processing",
         finished_at: new Date().toISOString(),
-        duration_ms: totalDurationMs,
+        duration_seconds: totalDurationSeconds,
       })
       .eq("id", id);
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    // Trigger transcription asynchronously by calling the transcribe endpoint
-    const baseUrl = request.nextUrl.origin;
-    fetch(`${baseUrl}/api/recordings/${id}/transcribe`, {
-      method: "POST",
-      headers: {
-        cookie: request.headers.get("cookie") || "",
-      },
-    }).catch((err) => {
-      console.error("Failed to trigger transcription:", err);
-    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

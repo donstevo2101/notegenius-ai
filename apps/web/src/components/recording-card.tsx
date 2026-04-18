@@ -59,7 +59,7 @@ export function RecordingCard({
   const SourceIcon = sourceIcons[source];
 
   return (
-    <Link href={`/recordings/${id}`} className="block">
+    <Link href={`/dashboard/recordings/${id}`} className="block">
       <div className="group rounded-xl border bg-white dark:bg-card dark:border-border p-4 shadow-sm transition-shadow hover:shadow-md">
         {/* Header row */}
         <div className="mb-2 flex items-start justify-between gap-2">

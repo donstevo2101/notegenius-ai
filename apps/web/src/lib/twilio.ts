@@ -72,18 +72,73 @@ export interface ProvisionedNumber {
   friendly_name: string;
 }
 
+export interface AddressInput {
+  customerName?: string;
+  street?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+}
+
+/**
+ * Find or create an address on the Twilio account for regulatory compliance.
+ */
+async function getOrCreateAddress(isoCountry: string, address?: AddressInput): Promise<string> {
+  // Check for existing address in this country
+  const listResponse = await twilioFetch(
+    `/Addresses.json?IsoCountry=${isoCountry.toUpperCase()}`
+  );
+  if (listResponse.ok) {
+    const listData = await listResponse.json();
+    if (listData.addresses && listData.addresses.length > 0) {
+      return listData.addresses[0].sid;
+    }
+  }
+
+  // Create a new address from user input
+  const addressBody = new URLSearchParams({
+    CustomerName: address?.customerName || "NoteGenius AI User",
+    Street: address?.street || "Address Required",
+    City: address?.city || "London",
+    Region: address?.region || address?.city || "London",
+    PostalCode: address?.postalCode || "SW1A 1AA",
+    IsoCountry: isoCountry.toUpperCase(),
+    FriendlyName: "NoteGenius Recording Address",
+  });
+
+  const createResponse = await twilioFetch("/Addresses.json", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: addressBody.toString(),
+  });
+
+  if (!createResponse.ok) {
+    const errorBody = await createResponse.text();
+    throw new Error(`Twilio address creation failed (${createResponse.status}): ${errorBody}`);
+  }
+
+  const addressData = await createResponse.json();
+  return addressData.sid;
+}
+
 /**
  * Buy a phone number and configure the voice webhook.
  */
 export async function provisionNumber(
   phoneNumber: string,
-  webhookUrl: string
+  webhookUrl: string,
+  isoCountry: string = "GB",
+  address?: AddressInput
 ): Promise<ProvisionedNumber> {
+  // Get or create an address for regulatory compliance
+  const addressSid = await getOrCreateAddress(isoCountry, address);
+
   const body = new URLSearchParams({
     PhoneNumber: phoneNumber,
     VoiceUrl: webhookUrl,
     VoiceMethod: "POST",
     FriendlyName: "NoteGenius Recording Line",
+    AddressSid: addressSid,
   });
 
   const response = await twilioFetch("/IncomingPhoneNumbers.json", {

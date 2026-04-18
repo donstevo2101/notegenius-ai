@@ -23,9 +23,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { countryCode, areaCode } = body as {
+    const { countryCode, areaCode, address } = body as {
       countryCode?: string;
       areaCode?: string;
+      address?: {
+        customerName?: string;
+        street?: string;
+        city?: string;
+        region?: string;
+        postalCode?: string;
+      };
     };
 
     if (!countryCode) {
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
     const origin = request.nextUrl.origin;
     const webhookUrl = `${origin}/api/twilio/webhook`;
 
-    const provisioned = await provisionNumber(chosen.phone_number, webhookUrl);
+    const provisioned = await provisionNumber(chosen.phone_number, webhookUrl, countryCode, address);
 
     // Save to database
     const { data: phoneRow, error: insertError } = await supabase

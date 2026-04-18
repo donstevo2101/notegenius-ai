@@ -11,62 +11,129 @@ export interface WhisperSegment {
   no_speech_prob: number;
 }
 
-interface WhisperVerboseResponse {
-  task: string;
-  language: string;
-  duration: number;
-  text: string;
-  segments: WhisperSegment[];
+const AAI_BASE = "https://api.assemblyai.com/v2";
+
+function getApiKey(): string {
+  const apiKey = process.env.ASSEMBLY_AI_API_KEY;
+  if (!apiKey) throw new Error("ASSEMBLY_AI_API_KEY is not set");
+  return apiKey;
+}
+
+async function aaiFetch(path: string, options: RequestInit = {}) {
+  return fetch(`${AAI_BASE}${path}`, {
+    ...options,
+    headers: {
+      Authorization: getApiKey(),
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 }
 
 /**
- * Transcribe a single audio chunk using OpenAI Whisper API.
- * Returns an array of transcript segments with timestamps.
+ * Transcribe audio using a public URL (e.g. Supabase signed URL).
+ */
+export async function transcribeFromUrl(
+  audioUrl: string,
+  language?: string
+): Promise<WhisperSegment[]> {
+  return transcribeWithAssemblyAI(audioUrl, language);
+}
+
+/**
+ * Transcribe audio from a Blob (uploads to AssemblyAI first).
  */
 export async function transcribeChunk(
   audioBlob: Blob,
   language?: string
 ): Promise<WhisperSegment[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is not set");
+  const arrayBuffer = await audioBlob.arrayBuffer();
+
+  // Upload raw bytes — AssemblyAI expects raw binary with no Content-Type override
+  const uploadRes = await fetch(`${AAI_BASE}/upload`, {
+    method: "POST",
+    headers: {
+      Authorization: getApiKey(),
+    },
+    body: new Uint8Array(arrayBuffer),
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`AssemblyAI upload failed (${uploadRes.status}): ${err}`);
   }
 
-  // Check the 25MB file size limit
-  if (audioBlob.size > 25 * 1024 * 1024) {
-    throw new Error(
-      `Audio chunk exceeds 25MB limit (${(audioBlob.size / (1024 * 1024)).toFixed(1)}MB)`
-    );
+  const { upload_url } = await uploadRes.json();
+  return transcribeWithAssemblyAI(upload_url, language);
+}
+
+async function transcribeWithAssemblyAI(
+  audioUrl: string,
+  language?: string
+): Promise<WhisperSegment[]> {
+  // Create transcript
+  const body: Record<string, unknown> = {
+    audio_url: audioUrl,
+    speech_models: ["universal-2"],
+  };
+  if (language && language !== "en") {
+    body.language_code = language;
   }
 
-  const formData = new FormData();
-  formData.append("file", audioBlob, "audio.webm");
-  formData.append("model", "whisper-1");
-  formData.append("response_format", "verbose_json");
-  formData.append("timestamp_granularities[]", "segment");
+  const createRes = await aaiFetch("/transcript", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 
-  if (language) {
-    formData.append("language", language);
+  if (!createRes.ok) {
+    const err = await createRes.text();
+    throw new Error(`AssemblyAI transcript creation failed: ${err}`);
   }
 
-  const response = await fetch(
-    "https://api.openai.com/v1/audio/transcriptions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: formData,
-    }
-  );
+  const { id: transcriptId } = await createRes.json();
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(
-      `Whisper API error (${response.status}): ${errorBody}`
-    );
+  // Poll until complete (max 5 min)
+  const maxWait = 300_000;
+  const start = Date.now();
+  let data: Record<string, unknown> = {};
+  let status = "queued";
+
+  while (status !== "completed" && status !== "error" && Date.now() - start < maxWait) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const pollRes = await aaiFetch(`/transcript/${transcriptId}`, {
+      method: "GET",
+    });
+    data = await pollRes.json();
+    status = data.status as string;
   }
 
-  const data = (await response.json()) as WhisperVerboseResponse;
-  return data.segments;
+  if (status === "error") throw new Error(`Transcription failed: ${data.error}`);
+  if (status !== "completed") throw new Error("Transcription timed out");
+  if (!data.text) return [];
+
+  // Get sentences
+  const sentRes = await aaiFetch(`/transcript/${transcriptId}/sentences`, { method: "GET" });
+  const sentData = await sentRes.json();
+  const sentences = (sentData.sentences || []) as Array<{
+    start: number; end: number; text: string; confidence: number;
+  }>;
+
+  if (sentences.length === 0) {
+    return [{
+      id: 0, seek: 0,
+      start: 0, end: (data.audio_duration as number) || 30,
+      text: data.text as string,
+      tokens: [], temperature: 0, avg_logprob: -0.3, compression_ratio: 1, no_speech_prob: 0,
+    }];
+  }
+
+  return sentences.map((s, idx) => ({
+    id: idx, seek: 0,
+    start: s.start / 1000,
+    end: s.end / 1000,
+    text: s.text,
+    tokens: [], temperature: 0,
+    avg_logprob: s.confidence ? Math.log(s.confidence) : -0.3,
+    compression_ratio: 1, no_speech_prob: 0,
+  }));
 }

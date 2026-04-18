@@ -7,8 +7,7 @@ import { Mic, Square, Pause, Play, X, ArrowLeft, Upload, Wifi } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
-import { useChunkUpload } from "@/hooks/use-chunk-upload";
-import { useRealtimeTranscript } from "@/hooks/use-realtime-transcript";
+import { createClient } from "@/lib/supabase/client";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -19,32 +18,24 @@ function formatDuration(seconds: number): string {
 
 export default function RecordPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [recordingId, setRecordingId] = useState<string | null>(null);
   const [liveTranscribe, setLiveTranscribe] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const recordingIdRef = useRef<string | null>(null);
 
-  const { addChunk, uploadedCount, pendingCount, isUploading, error: uploadError } =
-    useChunkUpload(recordingId);
-
-  const onChunk = useCallback(
-    (blob: Blob, index: number) => {
-      addChunk(blob, index);
-    },
-    [addChunk]
-  );
+  // Dummy onChunk — we don't upload during recording anymore
+  const onChunk = useCallback(() => {}, []);
 
   const { startRecording, stopRecording, pauseRecording, resumeRecording, isRecording, isPaused, duration } =
     useAudioRecorder(onChunk);
 
-  const { segments, isConnected } = useRealtimeTranscript(
-    liveTranscribe ? recordingId : null
-  );
-
-  const totalChunks = uploadedCount + pendingCount;
+  // Placeholder — live transcript disabled, loads on detail page
+  const segments: { id: string; text: string; start_ms: number; end_ms: number; speaker_label?: string; confidence?: number }[] = [];
 
   const handleStart = async () => {
     setError(null);
@@ -55,7 +46,7 @@ export default function RecordPage() {
       const response = await fetch("/api/recordings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "Untitled Recording", source: "microphone" }),
+        body: JSON.stringify({ title: "Untitled Recording", source: "web" }),
       });
 
       if (!response.ok) {
@@ -78,7 +69,6 @@ export default function RecordPage() {
   };
 
   const handleStop = async () => {
-    stopRecording();
     setIsFinalizing(true);
     setError(null);
 
@@ -86,20 +76,63 @@ export default function RecordPage() {
       const id = recordingIdRef.current;
       if (!id) throw new Error("No recording ID");
 
-      // Wait a moment for final chunk to upload
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const response = await fetch(`/api/recordings/${id}/finalize`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to finalize recording");
+      // Stop recording — returns the complete audio blob
+      setUploadProgress("Preparing audio...");
+      const audioBlob = await stopRecording();
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error(`No audio recorded. Blob: ${audioBlob ? `${audioBlob.size} bytes, type: ${audioBlob.type}` : "null"}. Your browser may not support audio recording.`);
       }
+      setUploadProgress(`Audio captured: ${(audioBlob.size / 1024).toFixed(0)}KB (${audioBlob.type})`);
 
-      // Navigate to the recording detail page
-      router.push(`/recordings/${id}`);
+      // Get user ID for storage path
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Detect file extension from mime type
+      const mimeType = audioBlob.type || "audio/webm";
+      const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("aac") ? "aac" : mimeType.includes("ogg") ? "ogg" : "webm";
+      const storagePath = `${user.id}/${id}/recording.${ext}`;
+      setUploadProgress(`Uploading ${(audioBlob.size / (1024 * 1024)).toFixed(1)}MB...`);
+
+      const { error: uploadError } = await supabase.storage
+        .from("recordings")
+        .upload(storagePath, audioBlob, {
+          contentType: mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+      // Save chunk record in DB so the process endpoint can find it
+      setUploadProgress("Saving...");
+      const { error: chunkError } = await supabase
+        .from("recording_chunks")
+        .insert({
+          recording_id: id,
+          chunk_index: 0,
+          storage_path: storagePath,
+          size_bytes: audioBlob.size,
+          duration_seconds: duration,
+        });
+
+      if (chunkError) throw new Error(`Failed to save: ${chunkError.message}`);
+
+      // Update recording with storage path and duration
+      await supabase
+        .from("recordings")
+        .update({
+          audio_storage_path: storagePath,
+          total_chunks: 1,
+          duration_seconds: duration,
+          status: "processing",
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      setUploadProgress("Done! Redirecting...");
+
+      // Redirect to detail page — it will drive transcription via /process
+      router.push(`/dashboard/recordings/${id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to finalize";
       setError(message);
@@ -114,7 +147,7 @@ export default function RecordPage() {
     setError(null);
   };
 
-  const displayError = error || uploadError;
+  const displayError = error;
 
   return (
     <div className="flex h-full flex-col">
@@ -126,16 +159,10 @@ export default function RecordPage() {
         </Button>
         <h1 className="text-sm font-semibold text-gray-900">New Recording</h1>
 
-        {/* Upload status indicator */}
-        {isRecording && (
+        {(isRecording || isFinalizing) && (
           <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
-            {isUploading && <Upload className="h-3 w-3 animate-pulse text-blue-500" />}
-            <span>
-              {uploadedCount}/{totalChunks} chunks
-            </span>
-            {liveTranscribe && isConnected && (
-              <Wifi className="h-3 w-3 text-green-500" />
-            )}
+            {isFinalizing && <Upload className="h-3 w-3 animate-pulse text-blue-500" />}
+            <span>{isFinalizing ? uploadProgress : "Recording..."}</span>
           </div>
         )}
       </div>

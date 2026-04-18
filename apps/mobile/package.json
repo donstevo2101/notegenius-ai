@@ -5,25 +5,32 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "prebuild": "expo prebuild --clean",
+    "build:ios": "eas build --platform ios --profile development",
+    "build:android": "eas build --platform android --profile development"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "expo": "~52.0.0",
-    "expo-router": "~4.0.0",
     "expo-av": "~15.0.0",
     "expo-file-system": "~18.0.0",
+    "expo-modules-core": "~2.0.0",
     "expo-notifications": "~0.29.0",
+    "expo-router": "~4.0.0",
     "expo-secure-store": "~14.0.0",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
+    "react-dom": "^18.3.1",
     "react-native": "0.76.0",
     "react-native-safe-area-context": "~5.0.0",
     "react-native-screens": "~4.0.0",
-    "@supabase/supabase-js": "^2.45.0",
-    "react-native-url-polyfill": "^2.0.0"
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-web": "^0.19.13"
   },
   "devDependencies": {
     "@types/react": "~18.3.0",
+    "expo-module-scripts": "^4.0.4",
     "typescript": "~5.8.0"
   }
 }

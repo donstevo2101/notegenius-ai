@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseAudioRecorderReturn {
   startRecording: () => Promise<void>;
-  stopRecording: () => void;
+  stopRecording: () => Promise<Blob | null>;
   pauseRecording: () => void;
   resumeRecording: () => void;
   isRecording: boolean;
@@ -22,10 +22,9 @@ export function useAudioRecorder(
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const chunkIndexRef = useRef(0);
+  const chunksRef = useRef<Blob[]>([]);
   const onChunkRef = useRef(onChunk);
 
-  // Keep callback ref fresh without triggering re-renders
   useEffect(() => {
     onChunkRef.current = onChunk;
   }, [onChunk]);
@@ -42,18 +41,38 @@ export function useAudioRecorder(
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
+      // Find a supported audio format — iOS Safari doesn't support webm
+      const formats = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/aac",
+        "audio/ogg;codecs=opus",
+        "audio/wav",
+      ];
+      let mimeType = "";
+      for (const fmt of formats) {
+        try {
+          if (MediaRecorder.isTypeSupported(fmt)) {
+            mimeType = fmt;
+            break;
+          }
+        } catch {
+          // isTypeSupported may throw on some browsers
+        }
+      }
 
-      const recorder = new MediaRecorder(stream, { mimeType });
+      // If no specific format supported, let browser choose default
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
-      chunkIndexRef.current = 0;
+      chunksRef.current = [];
 
+      // Collect all data chunks locally
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          onChunkRef.current(event.data, chunkIndexRef.current);
-          chunkIndexRef.current += 1;
+          chunksRef.current.push(event.data);
         }
       };
 
@@ -67,31 +86,50 @@ export function useAudioRecorder(
         }, 1000);
       };
 
-      recorder.onstop = () => {
-        setIsRecording(false);
-        setIsPaused(false);
-        clearTimer();
-      };
-
-      // Start with 30-second timeslice for chunked recording
-      recorder.start(30_000);
+      // Start without timeslice — iOS Safari has bugs with timeslice
+      // ondataavailable fires once when stop() is called
+      recorder.start();
     } catch (err) {
       console.error("Failed to start recording:", err);
       throw err;
     }
   }, [clearTimer]);
 
-  const stopRecording = useCallback(() => {
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
+  const stopRecording = useCallback(async (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        resolve(null);
+        return;
+      }
+
+      recorder.onstop = () => {
+        setIsRecording(false);
+        setIsPaused(false);
+        clearTimer();
+
+        // Merge all collected chunks into a single Blob
+        const mimeType = recorder.mimeType || "audio/webm";
+        const fullBlob = new Blob(chunksRef.current, { type: mimeType });
+
+        // Upload as a single chunk (index 0) — this is one complete, playable file
+        if (fullBlob.size > 0) {
+          onChunkRef.current(fullBlob, 0);
+        }
+
+        resolve(fullBlob);
+      };
+
+      // Just stop — ondataavailable will fire with the complete recording
       recorder.stop();
-    }
-    // Stop all tracks to release the microphone
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  }, []);
+
+      // Stop all tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    });
+  }, [clearTimer]);
 
   const pauseRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;

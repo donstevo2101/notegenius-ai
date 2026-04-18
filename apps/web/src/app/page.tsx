@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Mic,
@@ -21,6 +22,7 @@ import {
   Check,
   Menu,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,13 +32,22 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { categories, getToolsByCategory } from "@/lib/tool-config";
 import { useState } from "react";
 
 const fadeIn = {
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 1, y: 0 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: "-50px" },
-  transition: { duration: 0.5 },
+  transition: { duration: 0.3 },
 };
 
 /* ───────────────────────── TOP BANNER ───────────────────────── */
@@ -68,6 +79,11 @@ function Header() {
           <a href="#features" className="hover:text-gray-900 transition-colors">
             Features
           </a>
+
+          <Link href="/tools" className="hover:text-gray-900 transition-colors">
+            Tools
+          </Link>
+
           <a
             href="#solutions"
             className="hover:text-gray-900 transition-colors"
@@ -80,9 +96,11 @@ function Header() {
         </nav>
 
         <div className="hidden md:block">
-          <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full px-6 h-9 text-sm cursor-pointer">
-            Start For Free
-          </Button>
+          <Link href="/signup">
+            <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full px-6 h-9 text-sm cursor-pointer">
+              Start For Free
+            </Button>
+          </Link>
         </div>
 
         {/* Mobile hamburger */}
@@ -102,6 +120,9 @@ function Header() {
             <a href="#features" onClick={() => setMobileOpen(false)}>
               Features
             </a>
+            <Link href="/tools" onClick={() => setMobileOpen(false)}>
+              Tools
+            </Link>
             <a href="#solutions" onClick={() => setMobileOpen(false)}>
               Solutions
             </a>
@@ -109,9 +130,11 @@ function Header() {
               Pricing
             </a>
           </nav>
-          <Button className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full h-9 text-sm cursor-pointer">
-            Start For Free
-          </Button>
+          <Link href="/signup">
+            <Button className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full h-9 text-sm cursor-pointer">
+              Start For Free
+            </Button>
+          </Link>
         </div>
       )}
     </header>
@@ -134,17 +157,21 @@ function Hero() {
             including key points, decisions made, and assigned action items.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <Button className="bg-gray-900 hover:bg-gray-800 text-white rounded-full px-8 h-12 text-base cursor-pointer">
-              <Smartphone className="size-4 mr-2" />
-              Download App
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-full px-8 h-12 text-base border-[#3B82F6] text-[#3B82F6] hover:bg-[#EFF6FF] bg-gradient-to-r from-[#FDF2F8] to-white cursor-pointer"
-            >
-              <Monitor className="size-4 mr-2" />
-              Start on Web
-            </Button>
+            <Link href="/signup">
+              <Button className="bg-gray-900 hover:bg-gray-800 text-white rounded-full px-8 h-12 text-base cursor-pointer">
+                <Smartphone className="size-4 mr-2" />
+                Download App
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button
+                variant="outline"
+                className="rounded-full px-8 h-12 text-base border-[#3B82F6] text-[#3B82F6] hover:bg-[#EFF6FF] bg-gradient-to-r from-[#FDF2F8] to-white cursor-pointer"
+              >
+                <Monitor className="size-4 mr-2" />
+                Start on Web
+              </Button>
+            </Link>
           </div>
         </motion.div>
 
@@ -560,15 +587,17 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Button
-                className={`mt-8 w-full rounded-full h-10 text-sm cursor-pointer ${
-                  tier.highlighted
-                    ? "bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                    : "bg-gray-900 hover:bg-gray-800 text-white"
-                }`}
-              >
-                Get Started
-              </Button>
+              <Link href="/signup" className="w-full">
+                <Button
+                  className={`mt-8 w-full rounded-full h-10 text-sm cursor-pointer ${
+                    tier.highlighted
+                      ? "bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                      : "bg-gray-900 hover:bg-gray-800 text-white"
+                  }`}
+                >
+                  Get Started
+                </Button>
+              </Link>
             </motion.div>
           ))}
         </div>
@@ -641,9 +670,11 @@ function FinalCTA() {
         <p className="mt-4 text-gray-500 text-lg">
           Join millions of professionals who trust NoteGenius AI.
         </p>
-        <Button className="mt-8 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full px-10 h-12 text-base cursor-pointer">
-          Start For Free
-        </Button>
+        <Link href="/signup">
+          <Button className="mt-8 bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-full px-10 h-12 text-base cursor-pointer">
+            Start For Free
+          </Button>
+        </Link>
       </motion.div>
     </section>
   );

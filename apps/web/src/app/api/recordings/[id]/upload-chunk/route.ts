@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const maxDuration = 60;
+
 // POST /api/recordings/[id]/upload-chunk — upload an audio chunk
 export async function POST(
   request: NextRequest,
@@ -77,7 +79,7 @@ export async function POST(
         chunk_index: chunkIndex,
         storage_path: storagePath,
         size_bytes: chunk.size,
-        duration_ms: 30000, // 30 second chunks
+        duration_seconds: 30, // 30 second chunks
       });
 
     if (insertError) {

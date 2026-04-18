@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { generateSummary } from "@/lib/claude";
 import { sendSummaryEmail } from "@/lib/resend";
+
+export const maxDuration = 60;
+
+function getServiceSupabase() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // POST /api/recordings/[id]/summarize — generate AI summary
 export async function POST(
@@ -10,15 +20,16 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
 
+    // Verify user auth
+    const userSupabase = await createClient();
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Use service role for data operations
+    const supabase = getServiceSupabase();
 
     // Verify ownership
     const { data: recording, error: findError } = await supabase
@@ -35,7 +46,7 @@ export async function POST(
     // Fetch all transcript segments
     const { data: segments, error: segmentsError } = await supabase
       .from("transcript_segments")
-      .select("text, start_ms, end_ms, speaker_label")
+      .select("text, start_ms, end_ms")
       .eq("recording_id", id)
       .order("start_ms", { ascending: true });
 
@@ -49,9 +60,8 @@ export async function POST(
     // Build the transcript text
     const transcriptText = segments
       .map((s) => {
-        const speaker = s.speaker_label ? `[${s.speaker_label}] ` : "";
         const timestamp = formatTimestamp(s.start_ms);
-        return `${timestamp} ${speaker}${s.text}`;
+        return `${timestamp} ${s.text}`;
       })
       .join("\n");
 
@@ -140,8 +150,8 @@ export async function POST(
             },
             {
               overview: summary.overview,
-              action_items: summary.action_items,
-              key_decisions: summary.key_decisions,
+              action_items: (summary.action_items || []).map(String),
+              key_decisions: (summary.key_decisions || []).map(String),
             },
             origin,
             id
@@ -157,11 +167,11 @@ export async function POST(
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error";
 
-    // Try to set error status
+    // Summarization failed but transcript exists — still mark as ready
     try {
       const { id } = await params;
       const supabase = await createClient();
-      await supabase.from("recordings").update({ status: "error" }).eq("id", id);
+      await supabase.from("recordings").update({ status: "ready", error_message: `Summary failed: ${message}` }).eq("id", id);
     } catch {
       // ignore cleanup errors
     }

@@ -1,0 +1,26 @@
+{
+  "name": "call-detector",
+  "version": "0.1.0",
+  "description": "Detects incoming/outgoing/ended phone calls on iOS and Android",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "lint": "expo-module lint",
+    "test": "expo-module test",
+    "prepare": "expo-module prepare",
+    "prepublishOnly": "expo-module prepublishOnly",
+    "expo-module": "expo-module"
+  },
+  "keywords": ["react-native", "expo", "callkit", "call-detection"],
+  "license": "MIT",
+  "devDependencies": {
+    "expo-module-scripts": "^4.0.4"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

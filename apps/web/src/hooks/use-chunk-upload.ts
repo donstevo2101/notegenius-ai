@@ -10,6 +10,7 @@ interface QueueItem {
 
 interface UseChunkUploadReturn {
   addChunk: (blob: Blob, index: number) => void;
+  waitForUploads: () => Promise<void>;
   uploadedCount: number;
   pendingCount: number;
   isUploading: boolean;
@@ -106,8 +107,20 @@ export function useChunkUpload(
     [processQueue]
   );
 
+  const waitForUploads = useCallback(async () => {
+    const maxWait = 30000;
+    const start = Date.now();
+    while (
+      (queueRef.current.length > 0 || processingRef.current) &&
+      Date.now() - start < maxWait
+    ) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }, []);
+
   return {
     addChunk,
+    waitForUploads,
     uploadedCount,
     pendingCount,
     isUploading,

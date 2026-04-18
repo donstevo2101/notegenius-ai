@@ -90,6 +90,12 @@ export default function LoginPage() {
           <p className="text-sm text-destructive">{error}</p>
         )}
 
+        <div className="flex justify-end">
+          <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Signing in..." : "Sign in"}
         </Button>
