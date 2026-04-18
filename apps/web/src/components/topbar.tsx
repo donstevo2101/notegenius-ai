@@ -37,7 +37,7 @@ export function Topbar() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-[260px] p-0" showCloseButton={false}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <Sidebar className="border-r-0 shadow-none" />
+          <Sidebar className="border-r-0 shadow-none" onNavClick={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
     </>

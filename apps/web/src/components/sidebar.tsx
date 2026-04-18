@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -20,6 +21,7 @@ import {
   FileAudio,
   Languages,
   Wrench,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { label: "All", icon: LayoutGrid, href: "/dashboard", matchExact: true },
@@ -76,10 +79,31 @@ const toolItems = [
   { label: "All Tools", icon: Wrench, href: "/tools" },
 ];
 
-export function Sidebar({ className }: { className?: string }) {
+interface SidebarProps {
+  className?: string;
+  onNavClick?: () => void;
+}
+
+export function Sidebar({ className, onNavClick }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentFilter = searchParams.get("filter");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.role === "admin") setIsAdmin(true);
+        });
+    });
+  }, []);
 
   function isActive(item: (typeof navItems)[number]) {
     if ("filter" in item && item.filter) {
@@ -135,6 +159,7 @@ export function Sidebar({ className }: { className?: string }) {
               <Link
                 key={item.label}
                 href={item.href}
+                onClick={onNavClick}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   active
@@ -163,6 +188,7 @@ export function Sidebar({ className }: { className?: string }) {
             <Link
               key={item.label}
               href={item.href}
+              onClick={onNavClick}
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
             >
               <item.icon className="size-4" />
@@ -176,6 +202,7 @@ export function Sidebar({ className }: { className?: string }) {
         <nav className="flex flex-col gap-0.5 pb-2">
           <Link
             href="/dashboard/billing"
+            onClick={onNavClick}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               pathname === "/dashboard/billing"
@@ -195,6 +222,7 @@ export function Sidebar({ className }: { className?: string }) {
           </Link>
           <Link
             href="/dashboard/settings"
+            onClick={onNavClick}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               pathname === "/dashboard/settings"
@@ -212,6 +240,28 @@ export function Sidebar({ className }: { className?: string }) {
             />
             Settings
           </Link>
+          {isAdmin && (
+            <Link
+              href="/dashboard/admin"
+              onClick={onNavClick}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                pathname === "/dashboard/admin"
+                  ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+              )}
+            >
+              <ShieldCheck
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  pathname === "/dashboard/admin"
+                    ? "text-blue-500 dark:text-blue-400"
+                    : "text-gray-400"
+                )}
+              />
+              Admin
+            </Link>
+          )}
         </nav>
       </ScrollArea>
 

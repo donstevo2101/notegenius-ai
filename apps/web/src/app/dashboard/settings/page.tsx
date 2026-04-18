@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
@@ -66,6 +67,7 @@ const LANGUAGES = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -150,7 +152,7 @@ export default function SettingsPage() {
       // Sign out — actual account deletion would need a server endpoint
       // or Supabase admin action. For now, we sign the user out.
       await supabase.auth.signOut();
-      window.location.href = "/login";
+      router.push("/login");
     } catch {
       setError("Failed to delete account");
       setDeleting(false);
